@@ -1,52 +1,107 @@
 from html.parser import HTMLParser
-import httplib2
-import urllib.parse
-f = open('cache', 'w', encoding='latin-1')
+import urllib
+import http.cookiejar
+import string
+import os
+
+cj = http.cookiejar.CookieJar()
+opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
 url = 'https://ohmoor.de/idesk/'
-body = {"login_act": "username", "login_pwd": "password"}
+values = {"login_act": USER_NAME, "login_pwd": USER_PASSWORD}
 headers = {'Content-type': 'application/x-www-form-urlencoded'}
-http = httplib2.Http()
-response, content = http.request(url, 'POST', headers=headers, body=urllib.parse.urlencode(body))
 
-headers['Cookie'] = response['set-cookie']
+datas = urllib.parse.urlencode(values)
+data = datas.encode('utf-8')
+
+req = urllib.request.Request(url=url, data=data, headers=headers)
+response = opener.open(req)
+
+
+
 url = 'https://ohmoor.de/idesk/plan/index.php/Vertretungsplan/'   
-response, content = http.request(url, 'GET', headers=headers)
+req = urllib.request.Request(url=url)
+response = opener.open(req)
+content = response.read()
 
-f.write(content.decode('latin-1'))
 
-f = open('cache', 'r', encoding='latin-1')
 
-liste = []
+htmlData = content.decode('latin-1')
+
+htmlArr = htmlData.split(os.linesep)
+
+
+#liste = [{}]
 list = []
 info = []
-counter = 0
-endfile = 0
-parseData = 0
+
 
 class MyHTMLParser(HTMLParser):
-    def handle_starttag(self, tag, attrs):
-        global parseData
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.liste = [{}]
+        self.counter = 0
+        self.endfile = 0
+        self.parseData = 0
+        self.gotDate = 0
+        self.date = ""
+    def handle_starttag(self, tag, attrs): 
+        if self.gotDate == 1:
+            self.gotDate = 0
+            pass
         if attrs == [('class', 'mon_title')]:
-            parseData = 1
+            self.gotDate = 1
+            pass 
+        if attrs == [('class', 'mon_list')]:
+            self.parseData = 1
             pass
-        pass
-
     def handle_data(self, data):
-        if parseData == 1 and data != '\n':
-            liste.append(data)
+
+        if self.gotDate == 1:
+            self.date = data
             pass
-        
+        if self.parseData == 1 and data != '\n' and data != '' and data != '\r' and self.endfile == 0:
+            if self.counter == 0:
+                self.liste[0]["klasse"] = data
+                self.counter = self.counter + 1
+            elif self.counter == 1:
+                self.liste[0]["stunde"] = data
+                self.counter = self.counter + 1
+            elif self.counter == 2:
+                self.liste[0]["vertreter"] = data
+                self.counter = self.counter + 1
+            elif self.counter == 3:
+                self.liste[0]["lehrer"] = data
+                self.counter = self.counter + 1
+            elif self.counter == 4:
+                self.liste[0]["fach"] = data
+                self.counter = self.counter + 1
+            elif self.counter == 5:
+                self.liste[0]["normRaum"] = data
+                self.counter = self.counter + 1
+            elif self.counter == 6:
+                self.liste[0]["raum"] = data
+                self.counter = self.counter + 1
+            elif self.counter == 7:
+                self.liste[0]["info"] = data
+                self.counter = self.counter + 1  
+                 
+    def handle_endtag(self, tag):
+        if self.parseData == 1 and tag == "table" and self.gotDate != 1:
+            self.endfile = 1
+            pass
 
 parser = MyHTMLParser()
 
-for line in f:
+for line in htmlArr:
     parser.feed(line)
-    list.append(liste)
-    liste = []
-    counter = counter + 1
+    liste = parser.liste
+    if parser.liste != [{}]:
+        list.append(parser.liste)
+        pass
+    parser.liste = [{}]
+    parser.counter = 0
+    
     pass
 
-for item in list:
-    print(item)
-    pass
-
+print(list)
