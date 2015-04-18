@@ -8,7 +8,7 @@ cj = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
 
 url = 'https://ohmoor.de/idesk/'
-values = {"login_act": USER_NAME, "login_pwd": USER_PASSWORD}
+values = {"login_act": USER_NAME, "login_pwd": PASSWORD}
 headers = {'Content-type': 'application/x-www-form-urlencoded'}
 
 datas = urllib.parse.urlencode(values)
@@ -19,7 +19,7 @@ response = opener.open(req)
 
 
 
-url = 'https://ohmoor.de/idesk/plan/index.php/Vertretungsplan/'   
+url = 'https://ohmoor.de/idesk/plan/index.php/Vertretungsplan/'
 req = urllib.request.Request(url=url)
 response = opener.open(req)
 content = response.read()
@@ -41,26 +41,25 @@ class MyHTMLParser(HTMLParser):
         HTMLParser.__init__(self)
         self.liste = [{}]
         self.counter = 0
+        self.counter2FirstEntrys = 0
         self.endfile = 0
         self.parseData = 0
         self.gotDate = 0
         self.date = ""
-    def handle_starttag(self, tag, attrs): 
-        if self.gotDate == 1:
-            self.gotDate = 0
-            pass
+
+    def handle_starttag(self, tag, attrs):
         if attrs == [('class', 'mon_title')]:
             self.gotDate = 1
-            pass 
+            pass
         if attrs == [('class', 'mon_list')]:
             self.parseData = 1
-            pass
+
     def handle_data(self, data):
 
         if self.gotDate == 1:
             self.date = data
             pass
-        if self.parseData == 1 and data != '\n' and data != '' and data != '\r' and self.endfile == 0:
+        if self.counter2FirstEntrys > 14 and self.parseData == 1 and data != '\n' and data != '' and data != '\r' and self.endfile == 0:
             if self.counter == 0:
                 self.liste[0]["klasse"] = data
                 self.counter = self.counter + 1
@@ -84,11 +83,18 @@ class MyHTMLParser(HTMLParser):
                 self.counter = self.counter + 1
             elif self.counter == 7:
                 self.liste[0]["info"] = data
-                self.counter = self.counter + 1  
-                 
+                self.counter = self.counter + 1
+            pass
+        if self.parseData == 1:
+            self.counter2FirstEntrys = self.counter2FirstEntrys + 1
+
+
     def handle_endtag(self, tag):
-        if self.parseData == 1 and tag == "table" and self.gotDate != 1:
+        if self.parseData == 1 and tag == "table":
             self.endfile = 1
+            self.parseData = 0
+        if self.gotDate == 1 and tag == "table":
+            self.gotDate = 0
             pass
 
 parser = MyHTMLParser()
@@ -99,9 +105,9 @@ for line in htmlArr:
     if parser.liste != [{}]:
         list.append(parser.liste)
         pass
+
     parser.liste = [{}]
     parser.counter = 0
-    
     pass
 
 print(list)
